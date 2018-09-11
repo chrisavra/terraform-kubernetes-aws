@@ -49,12 +49,12 @@ variable "subnets" {
 
 variable "kubernetes_version" {
   description = "The kubernetes version"
-  default     = "1.8.7"
+  default     = "1.9.10"
 }
 
 variable "kubernetes_dashboard_version" {
   description = "The Kubernetes Dashboard version"
-  default     = "1.8.2"
+  default     = "1.10.0"
 }
 
 variable "additional_iam_policy" {
