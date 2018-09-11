@@ -18,11 +18,6 @@ function install_cert {
     fi
 }
 function setup_docker {
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
-    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-    apt update && apt -y install docker-ce
-    usermod -a -G docker ubuntu
-
     test -z "$http_proxy" && return
 
     mkdir /etc/systemd/system/docker.service.d/
@@ -36,15 +31,6 @@ EOF
 
 
 function setup_kubelet {
-    apt-get update && apt-get install -y apt-transport-https
-
-    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-
-    cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
-deb http://apt.kubernetes.io/ kubernetes-xenial main
-EOF
-
-    apt update
     if [[ "${kubernetes_version}" == 1.8* ]]; then
       apt install -y kubelet=${kubernetes_version}-* kubeadm=${kubernetes_version}-* kubectl=${kubernetes_version}-* kubernetes-cni=0.5.1-*
     else
@@ -62,17 +48,6 @@ EOF
     sed -i 's/10.96.0.10/100.64.0.10/g' /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
     systemctl daemon-reload
     
-}
-
-function setup_ntp {
-    apt install -y chrony
-
-    sed -i 's/^pool.*//' /etc/
-
-    echo "server 169.254.169.123 prefer iburst" >> /etc/chrony.conf
-
-    systemctl restart chrony
-    systemctl enable chrony
 }
 
 function attach_volume {

@@ -6,20 +6,6 @@ data "aws_subnet" "region_1a" {
   id = "${var.subnets[0]}"
 }
 
-data "template_file" "master" {
-  template = "${file("${path.module}/scripts/userdata.tpl")}"
-
-  vars {
-    s3_id = "${aws_s3_bucket.cluster.id}"
-    role  = "master"
-
-    proxy             = "${replace("${var.proxy_servers}", ",", " ")}"
-    volume            = "${aws_ebs_volume.master.id}"
-    load_balancer_dns = "${aws_lb.master.dns_name}"
-    net_plugin        = "${var.cluster_network_plugin}"
-  }
-}
-
 resource "aws_ebs_volume" "master" {
   availability_zone = "${data.aws_subnet.region_1a.availability_zone}"
   size              = 40
@@ -72,13 +58,56 @@ resource "aws_security_group" "master" {
   tags = "${var.additional_tags}"
 }
 
+data "template_file" "master_script" {
+  template = "${file("${path.module}/scripts/userdata.tpl")}"
+
+  vars {
+    s3_id = "${aws_s3_bucket.cluster.id}"
+    role  = "master"
+
+    proxy             = "${replace("${var.proxy_servers}", ",", " ")}"
+    volume            = "${aws_ebs_volume.master.id}"
+    load_balancer_dns = "${aws_lb.master.dns_name}"
+    net_plugin        = "${var.cluster_network_plugin}"
+  }
+}
+
+data "template_file" "master_cloudconfig" {
+  template = "${file("${path.module}/scripts/userdata-cloudconfig.tpl")}"
+
+  vars {
+    s3_id = "${aws_s3_bucket.cluster.id}"
+    role  = "master"
+
+    proxy             = "${replace("${var.proxy_servers}", ",", " ")}"
+    volume            = "${aws_ebs_volume.master.id}"
+    load_balancer_dns = "${aws_lb.master.dns_name}"
+    net_plugin        = "${var.cluster_network_plugin}"
+  }
+}
+
+data "template_cloudinit_config" "config" {
+  gzip          = false
+  base64_encode = false
+
+  part {
+    content_type = "text/cloud-config"
+    content      = "${data.template_file.master_cloudconfig.rendered}"
+  }
+
+  part {
+    content_type = "text/x-shellscript"
+    content      = "${data.template_file.master_script.rendered}"
+  }
+}
+
 resource "aws_launch_configuration" "master" {
   name_prefix          = "${var.name}-master-"
   image_id             = "${data.aws_ami.ubuntu.id}"
   instance_type        = "${var.master_instance_type}"
   security_groups      = ["${aws_security_group.master.id}"]
   key_name             = "${var.ssh_key}"
-  user_data            = "${data.template_file.master.rendered}"
+  user_data            = "${data.template_cloudinit_config.config.rendered}"
   iam_instance_profile = "${aws_iam_instance_profile.cluster.id}"
 
   root_block_device {
