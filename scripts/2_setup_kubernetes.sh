@@ -2,6 +2,7 @@
 
 . /etc/environment
 
+
 function init_master {
 # Create the file regarding the version of K8s
 # in v1alpha1 if < kubeadm 1.11
